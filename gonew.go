@@ -18,7 +18,7 @@ func main() {
 		os.Exit(1)
 	}
 	
-	if flag.Arg(0) != "cmd" && flag.Arg(0) != "clib" && flag.Arg(0) != "pkg" {
+	if flag.Arg(0) != "cmd" && flag.Arg(0) != "clib" && flag.Arg(0) != "pkg" && flag.Arg(0) != "gae" {
 		Usage()
 		os.Exit(1)
 	}
@@ -45,6 +45,38 @@ func main() {
 	fmt.Printf("Hello World!")
 }
 `)
+
+	if prjtype == "gae" {
+		gofile = fmt.Sprintf(`package %s
+
+import "fmt"
+import "http"
+
+func init() {
+	http.HandleFunc("/", handle)
+}
+
+func handle(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "<html><body>Hello, World!</body></html>")
+}
+`, prjname)
+
+		makefile = fmt.Sprintf(`run:
+	dev_appserver.py .
+`, prjname, prjname)
+	}
+
+	appyaml := fmt.Sprintf(`application: %s
+version: 1
+runtime: go
+api_version: 2
+
+handlers:
+- url: /static
+  static_dir: static
+- url: /.*
+  script: _go_app
+`, prjname)
 
 	readme := fmt.Sprintf(`%s
 ======
@@ -92,14 +124,26 @@ export GOARCH=386
 `, prjname, prjname, wintype)
 
 	gitignore := fmt.Sprintf("*.6\n*.8\n%s\n", prjname)
-	
+
 	gofilename := fmt.Sprintf("%s.go", prjname)
-	os.Mkdir(dir, 0777)
-	WriteFile(dir, "Makefile", makefile, 0666)
-	WriteFile(dir, gofilename, gofile, 0666)
-	WriteFile(dir, "README.md", readme, 0666)
-	WriteFile(dir, "make_w32.sh", makewin, 0777)
-	WriteFile(dir, ".gitignore", gitignore, 0666)
+	if prjtype == "gae" {
+		direx := fmt.Sprintf("%s/%s", dir, prjname)
+		
+		os.Mkdir(dir, 0777)
+		os.Mkdir(direx, 0777)
+		WriteFile(dir, "app.yaml", appyaml, 0666)
+		WriteFile(dir, "Makefile", makefile, 0666)
+		WriteFile(direx, gofilename, gofile, 0666)
+		WriteFile(dir, "README.md", readme, 0666)
+		WriteFile(dir, ".gitignore", gitignore, 0666)
+	} else {
+		os.Mkdir(dir, 0777)
+		WriteFile(dir, "Makefile", makefile, 0666)
+		WriteFile(dir, gofilename, gofile, 0666)
+		WriteFile(dir, "README.md", readme, 0666)
+		WriteFile(dir, "make_w32.sh", makewin, 0777)
+		WriteFile(dir, ".gitignore", gitignore, 0666)
+	}
 
 	fmt.Printf("Created a new project: %s\n", prjname)
 }
