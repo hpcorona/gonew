@@ -49,6 +49,8 @@ func main() {
 	if prjtype == "gae" {
 		gofile = fmt.Sprintf(`package %s
 
+import "appengine"
+import "appengine/user"
 import "fmt"
 import "http"
 
@@ -57,7 +59,22 @@ func init() {
 }
 
 func handle(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "<html><body>Hello, World!</body></html>")
+	ctx := appengine.NewContext(r)
+	usr := user.Current(ctx)
+	
+	if usr == nil {
+		url, err := user.LoginURL(ctx, r.URL.String())
+		if err != nil {
+			http.Error(w, err.String(), http.StatusInternalServerError)
+			return
+		}
+		
+		w.Header().Set("Location", url)
+		w.WriteHeader(http.StatusFound)
+		return
+	}
+	
+	fmt.Fprintf(w, "<html><body>Hello, %v!</body></html>", usr)
 }
 `, prjname)
 
